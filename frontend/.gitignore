@@ -1,0 +1,13 @@
+node_modules/
+.expo/
+dist/
+web-build/
+google-services.json
+GoogleService-Info.plist
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+GoogleService-Info.plist
+google-services.json
