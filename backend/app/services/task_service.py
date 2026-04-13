@@ -53,10 +53,18 @@ def get_tasks_for_user(
     )
     status_map: dict[UUID, bool] = {s.task_id: s.completed for s in statuses}
 
+    # Resolve creator names in a single query so the frontend can show "Assigned by Dad"
+    creator_ids = {t.created_by for t in tasks if t.created_by}
+    creator_map: dict[UUID, str] = {}
+    if creator_ids:
+        creators = db.query(User).filter(User.id.in_(creator_ids)).all()
+        creator_map = {c.id: c.name for c in creators}
+
     result: list[TaskWithStatus] = []
     for task in tasks:
         tw = TaskWithStatus.model_validate(task)
         tw.completed = status_map.get(task.id, False)
+        tw.assigned_by = creator_map.get(task.created_by, "")
         result.append(tw)
 
     return result

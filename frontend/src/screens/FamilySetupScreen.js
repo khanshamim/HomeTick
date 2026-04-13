@@ -1,9 +1,10 @@
 /**
- * FamilySetupScreen — shown on first launch when no users exist.
+ * FamilySetupScreen — create a new family + initial members.
  *
- * Lets the admin create their own account and add family members in one go.
- * On submit every user is POSTed to the backend, then fetchUsers() is called
- * so the navigator automatically transitions to UserSelectionScreen.
+ * Flow:
+ *   1. POST /families/  → get family_id
+ *   2. POST /users/ for each member (passing family_id)
+ *   3. selectFamily(family_id) → triggers fetchUsersForFamily + navigation
  */
 
 import React, { useState } from 'react';
@@ -21,12 +22,13 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { createUser } from '../services/api';
+import { createFamily, createUser } from '../services/api';
 import { useApp } from '../context/AppContext';
 import { colors, spacing, radius, typography, shadow } from '../theme';
 
 export default function FamilySetupScreen() {
-  const { fetchUsers } = useApp();
+  const { selectFamily } = useApp();
+  const [familyName, setFamilyName] = useState('');
   const [adminName, setAdminName] = useState('');
   const [members, setMembers] = useState([{ id: Date.now(), name: '' }]);
   const [saving, setSaving] = useState(false);
@@ -41,7 +43,12 @@ export default function FamilySetupScreen() {
     setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, name } : m)));
 
   const handleSubmit = async () => {
+    const trimmedFamily = familyName.trim();
     const trimmedAdmin = adminName.trim();
+    if (!trimmedFamily) {
+      Alert.alert('Required', 'Please enter a family name.');
+      return;
+    }
     if (!trimmedAdmin) {
       Alert.alert('Required', 'Please enter the admin name.');
       return;
@@ -51,15 +58,22 @@ export default function FamilySetupScreen() {
 
     setSaving(true);
     try {
-      // Create admin first, then members in order
-      await createUser(trimmedAdmin, 'admin');
+      // 1. Create the family
+      const family = await createFamily(trimmedFamily);
+      const familyId = family.id;
+
+      // 2. Create admin user in that family
+      await createUser(trimmedAdmin, 'admin', familyId);
+
+      // 3. Create remaining members
       for (const name of validMembers) {
-        await createUser(name, 'member');
+        await createUser(name, 'member', familyId);
       }
-      // Re-fetch so the navigator switches to UserSelectionScreen
-      await fetchUsers();
+
+      // 4. Select the family → fetches users → RootNavigator switches to UserSelectionScreen
+      await selectFamily(String(familyId), family.name);
     } catch (err) {
-      Alert.alert('Error', 'Could not save family details. Check the backend is running.');
+      Alert.alert('Error', err.response?.data?.detail || 'Could not create family. Check the backend is running.');
     } finally {
       setSaving(false);
     }
@@ -82,6 +96,25 @@ export default function FamilySetupScreen() {
             </View>
             <Text style={styles.appName}>HomeTick</Text>
             <Text style={styles.tagline}>Let's set up your family</Text>
+          </View>
+
+          {/* Family name section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Family Name</Text>
+            <View style={[styles.inputRow, shadow.card]}>
+              <View style={[styles.roleChip, { backgroundColor: colors.warning }]}>
+                <Ionicons name="home" size={16} color={colors.white} />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. The Smiths"
+                placeholderTextColor={colors.textDisabled}
+                value={familyName}
+                onChangeText={setFamilyName}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
           </View>
 
           {/* Admin section */}
@@ -109,7 +142,7 @@ export default function FamilySetupScreen() {
 
             {members.map((member, index) => (
               <View key={member.id} style={[styles.inputRow, shadow.card]}>
-                <View style={[styles.roleChip, { backgroundColor: colors.secondary }]}>
+                <View style={[styles.roleChip, { backgroundColor: colors.success }]}>
                   <Ionicons name="person" size={16} color={colors.white} />
                 </View>
                 <TextInput
@@ -126,7 +159,7 @@ export default function FamilySetupScreen() {
                     onPress={() => removeMember(member.id)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons name="close-circle" size={22} color={colors.danger} />
+                    <Ionicons name="close-circle" size={22} color={colors.destructive} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -190,7 +223,7 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.inputBackground,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

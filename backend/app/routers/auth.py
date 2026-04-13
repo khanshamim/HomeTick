@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.models import User
+from app.models.models import Family, User
 from app.schemas.schemas import SelectUserRequest, SelectUserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -35,9 +35,11 @@ def select_user(payload: SelectUserRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found in this family",
         )
+    family = db.query(Family).filter(Family.id == user.family_id).first()
     return SelectUserResponse(
         user_id=user.id,
         family_id=user.family_id,
         name=user.name,
         role=user.role,
+        family_name=family.name if family else "",
     )

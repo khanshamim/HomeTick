@@ -2,16 +2,19 @@
  * App.js — Root of the HomeTick React Native app.
  *
  * Navigation structure:
- *   AuthStack (before a user is selected)
- *     └─ UserSelectionScreen
+ *   No family selected  → FamilySelectionScreen
+ *     └─ FamilySetupScreen  (create new family)
  *
- *   MainTabs (after user selection)
+ *   Family selected, no user → UserSelectionScreen
+ *
+ *   User selected → MainTabs
  *     ├─ HomeScreen        (checklist)
- *     ├─ AddTaskScreen     (admin only — still rendered for all; guard inside)
+ *     ├─ AddTaskScreen     (admin only)
  *     └─ FamilyOverviewScreen
+ *       └─ MemberTasksScreen  (pushed from overview)
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -19,8 +22,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
 import { AppProvider, useApp } from './src/context/AppContext';
-import UserSelectionScreen from './src/screens/UserSelectionScreen';
+import SplashScreen from './src/screens/SplashScreen';
+import FamilySelectionScreen from './src/screens/FamilySelectionScreen';
 import FamilySetupScreen from './src/screens/FamilySetupScreen';
+import JoinFamilyScreen from './src/screens/JoinFamilyScreen';
+import UserSelectionScreen from './src/screens/UserSelectionScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import AddTaskScreen from './src/screens/AddTaskScreen';
 import FamilyOverviewScreen from './src/screens/FamilyOverviewScreen';
@@ -68,30 +74,30 @@ function MainTabs() {
 }
 
 function RootNavigator() {
-  const { currentUser, users, hasLoaded, isInitializing, fetchUsers } = useApp();
+  const { currentUser, currentFamilyId, isInitializing } = useApp();
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  // Wait for AsyncStorage to restore currentUser before rendering anything
-  // — prevents flash of UserSelectionScreen for already-logged-in users
+  // Wait for AsyncStorage to restore state before rendering — prevents flicker
   if (isInitializing) return null;
-
-  const needsSetup = hasLoaded && users.length === 0 && !currentUser;
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {currentUser ? (
+          // Authenticated: show main app
           <>
             <Stack.Screen name="Main" component={MainTabs} />
             <Stack.Screen name="MemberTasks" component={MemberTasksScreen} />
           </>
-        ) : needsSetup ? (
-          <Stack.Screen name="FamilySetup" component={FamilySetupScreen} />
-        ) : (
+        ) : currentFamilyId ? (
+          // Family chosen but no user picked yet
           <Stack.Screen name="UserSelection" component={UserSelectionScreen} />
+        ) : (
+          // No family chosen — show family picker, join, and setup flow
+          <>
+            <Stack.Screen name="FamilySelection" component={FamilySelectionScreen} />
+            <Stack.Screen name="FamilySetup" component={FamilySetupScreen} />
+            <Stack.Screen name="JoinFamily" component={JoinFamilyScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
@@ -99,6 +105,22 @@ function RootNavigator() {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSplash) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <SplashScreen />
+      </>
+    );
+  }
+
   return (
     <AppProvider>
       <StatusBar style="light" />

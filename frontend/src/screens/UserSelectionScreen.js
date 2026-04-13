@@ -1,8 +1,8 @@
 /**
- * UserSelectionScreen — shown on first launch (or after logout).
+ * UserSelectionScreen — shown after a family is selected but before a user is picked.
  *
- * Fetches the list of family members from the API and lets the user
- * tap their name to begin. The selection is persisted via AppContext.
+ * Fetches the list of family members and lets the user tap their name to begin.
+ * Shows the family name prominently so users always know which family they're in.
  */
 
 import React, { useEffect } from 'react';
@@ -19,13 +19,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { colors, spacing, radius, typography, shadow } from '../theme';
 
-const ROLE_ICON = { admin: 'shield-checkmark', member: 'person-circle' };
-const ROLE_COLOR = { admin: colors.primary, member: colors.secondary };
+const ROLE_ICON  = { admin: 'shield-checkmark', member: 'person-circle' };
+const ROLE_COLOR = { admin: colors.primary, member: colors.success };
 
 export default function UserSelectionScreen() {
-  const { users, loadingUsers, fetchUsers, selectUser } = useApp();
+  const {
+    users,
+    loadingUsers,
+    fetchUsersForFamily,
+    currentFamilyId,
+    familyName,
+    selectUser,
+    logoutFamily,
+  } = useApp();
 
-  // fetchUsers is triggered by RootNavigator on app start
+  // Reload users when this screen mounts (covers back-navigation and fresh launch)
+  useEffect(() => {
+    if (currentFamilyId) fetchUsersForFamily(currentFamilyId);
+  }, [currentFamilyId]);
 
   const renderUser = ({ item }) => (
     <TouchableOpacity
@@ -51,8 +62,16 @@ export default function UserSelectionScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.hero}>
+        <View style={styles.familyBadge}>
+          <Ionicons name="home" size={14} color="rgba(255,255,255,0.9)" />
+          <Text style={styles.familyBadgeText}>{familyName || 'My Family'}</Text>
+        </View>
         <Text style={styles.appName}>HomeTick</Text>
         <Text style={styles.tagline}>Who's checking in today?</Text>
+        <TouchableOpacity style={styles.changeFamily} onPress={logoutFamily}>
+          <Ionicons name="swap-horizontal-outline" size={14} color="rgba(255,255,255,0.7)" />
+          <Text style={styles.changeFamilyText}>Change family</Text>
+        </TouchableOpacity>
       </View>
 
       {loadingUsers ? (
@@ -82,8 +101,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
   },
+
+  familyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  familyBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.white,
+    letterSpacing: 0.3,
+  },
+
   appName: { fontSize: 36, fontWeight: '800', color: colors.white, letterSpacing: -0.5 },
   tagline: { ...typography.body, color: 'rgba(255,255,255,0.8)', marginTop: spacing.xs },
+  changeFamily: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.sm },
+  changeFamilyText: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
+
   list: { padding: spacing.lg },
   userCard: {
     flexDirection: 'row',

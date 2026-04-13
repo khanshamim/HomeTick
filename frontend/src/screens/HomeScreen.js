@@ -1,8 +1,11 @@
 /**
  * HomeScreen — daily checklist for the current user.
  *
- * Shows today's tasks with a checkbox to mark them complete/incomplete.
- * Pulls fresh data on mount and on pull-to-refresh.
+ * Shows:
+ *   • Family name badge in the header (🏠 Khan Family)
+ *   • Personal greeting ("Hello, Shamim 👋")
+ *   • Progress bar (X / N completed)
+ *   • Task list with "Assigned by <name>" on each card
  */
 
 import React, { useEffect } from 'react';
@@ -31,7 +34,7 @@ function todayLabel() {
 }
 
 export default function HomeScreen() {
-  const { currentUser, logout } = useApp();
+  const { currentUser, familyName, logout } = useApp();
   const { tasks, loading, error, refresh, toggleTask } = useTasks(currentUser?.id);
 
   // Register for push notifications on first render
@@ -46,7 +49,8 @@ export default function HomeScreen() {
   }, [error]);
 
   const completed = tasks.filter((t) => t.completed).length;
-  const total = tasks.length;
+  const total     = tasks.length;
+  const pct       = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const renderEmpty = () =>
     !loading ? (
@@ -60,7 +64,8 @@ export default function HomeScreen() {
   return (
     <View style={styles.screen}>
       <Header
-        title={`Hi, ${currentUser?.name} 👋`}
+        familyName={familyName}
+        title={`Hello, ${currentUser?.name} 👋`}
         subtitle={todayLabel()}
         onLogout={logout}
       />
@@ -71,17 +76,10 @@ export default function HomeScreen() {
           <Text style={styles.progressText}>
             {completed} / {total} completed
           </Text>
-          <Text style={styles.progressPct}>
-            {total > 0 ? Math.round((completed / total) * 100) : 0}%
-          </Text>
+          <Text style={styles.progressPct}>{pct}%</Text>
         </View>
         <View style={styles.barTrack}>
-          <View
-            style={[
-              styles.barFill,
-              { width: total > 0 ? `${(completed / total) * 100}%` : '0%' },
-            ]}
-          />
+          <View style={[styles.barFill, { width: `${pct}%` }]} />
         </View>
       </View>
 
@@ -128,12 +126,12 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     overflow: 'hidden',
   },
-  barFill: { height: 4, backgroundColor: colors.secondary, borderRadius: 99 },
+  barFill: { height: 4, backgroundColor: colors.success, borderRadius: 99 },
 
   list: { padding: spacing.md },
 
   emptyState: { alignItems: 'center', marginTop: spacing.xxl },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+  emptyIcon:  { fontSize: 48, marginBottom: spacing.md },
   emptyTitle: { ...typography.h2, marginBottom: spacing.xs },
-  emptyBody: { ...typography.body, color: colors.textSecondary },
+  emptyBody:  { ...typography.body, color: colors.textSecondary },
 });

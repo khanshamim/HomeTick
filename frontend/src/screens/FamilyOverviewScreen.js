@@ -23,7 +23,7 @@ import { getFamilyOverview } from '../services/api';
 import { colors, spacing, typography } from '../theme';
 
 export default function FamilyOverviewScreen() {
-  const { currentUser, logout } = useApp();
+  const { currentUser, familyName, logout } = useApp();
   const navigation = useNavigation();
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -52,6 +52,7 @@ export default function FamilyOverviewScreen() {
       <Header
         title="Family Overview"
         subtitle={`${totalDone} / ${totalAll} tasks done today`}
+        familyName={familyName}
         onLogout={logout}
       />
 

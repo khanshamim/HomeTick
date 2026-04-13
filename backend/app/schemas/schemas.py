@@ -15,9 +15,31 @@ class FamilyCreate(BaseModel):
 class FamilyResponse(BaseModel):
     id: UUID
     name: str
+    invite_code: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class InviteCodeResponse(BaseModel):
+    """Returned when an admin generates or refreshes an invite code."""
+    invite_code: str
+    family_id: UUID
+    family_name: str
+
+
+class JoinFamilyRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    invite_code: str = Field(..., min_length=4, max_length=8)
+
+
+class JoinFamilyResponse(BaseModel):
+    """Mirrors SelectUserResponse so the frontend can treat both flows identically."""
+    user_id: UUID
+    family_id: UUID
+    family_name: str
+    name: str
+    role: str
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +82,7 @@ class SelectUserResponse(BaseModel):
     family_id: UUID
     name: str
     role: str
+    family_name: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -87,8 +110,9 @@ class TaskResponse(TaskBase):
 
 
 class TaskWithStatus(TaskResponse):
-    """Task enriched with today's completion status."""
+    """Task enriched with today's completion status and the creator's display name."""
     completed: bool = False
+    assigned_by: str = ""  # Human-readable name of the user who created/assigned the task
 
 
 # ---------------------------------------------------------------------------

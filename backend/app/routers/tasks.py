@@ -7,7 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_admin
 from app.models.models import User
 from app.schemas.schemas import TaskCreate, TaskResponse, TaskWithStatus, UserProgress
-from app.services import task_service
+from app.services import notification_service, task_service
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -53,12 +53,25 @@ def create_task(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Assigned user must belong to the same family",
         )
-    return task_service.create_task(
+    task = task_service.create_task(
         db,
         payload,
         created_by=current_user.id,
         family_id=current_user.family_id,
     )
+
+    # Push notification to the assigned user (fire-and-forget; never blocks the response)
+    if assigned_user.fcm_token:
+        try:
+            notification_service.send_task_assigned_notification(
+                token=assigned_user.fcm_token,
+                task_title=task.title,
+                assigned_by_name=current_user.name,
+            )
+        except Exception:
+            pass  # Notification failure must never fail the HTTP request
+
+    return task
 
 
 @router.get("/user/{user_id}", response_model=list[TaskWithStatus])

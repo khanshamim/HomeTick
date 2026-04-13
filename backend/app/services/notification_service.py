@@ -61,6 +61,15 @@ def send_morning_reminders(db: Session) -> dict:
     return results
 
 
+def send_task_assigned_notification(token: str, task_title: str, assigned_by_name: str) -> bool:
+    """Notify a user immediately when a task is assigned to them."""
+    return send_push_notification(
+        token,
+        "New task assigned",
+        f"{assigned_by_name} assigned you: {task_title}",
+    )
+
+
 def send_evening_reminders(db: Session) -> dict:
     """Send 'X pending tasks' to members who haven't finished everything."""
     today = date.today()

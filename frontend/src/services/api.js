@@ -65,6 +65,21 @@ export const getFamily = (familyId) =>
 export const getFamilyUsers = (familyId) =>
   api.get(`/families/${familyId}/users`).then((r) => r.data);
 
+/**
+ * Join a family using an invite code + name.
+ * Returns { user_id, family_id, family_name, name, role }.
+ * Public — no X-User-ID required.
+ */
+export const joinFamily = (inviteCode, name) =>
+  api.post('/families/join', { invite_code: inviteCode, name }).then((r) => r.data);
+
+/**
+ * Admin only: generate (or refresh) the invite code for the current family.
+ * Returns { invite_code, family_id, family_name }.
+ */
+export const generateInviteCode = () =>
+  api.post('/families/invite-code').then((r) => r.data);
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 /** Requires auth — returns users in the current user's family. */

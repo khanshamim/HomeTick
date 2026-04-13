@@ -68,7 +68,7 @@ export default function UserCard({ progress, onPress }) {
       {/* Stats row */}
       <View style={styles.statsRow}>
         <Stat label="Total" value={total_tasks} />
-        <Stat label="Done" value={completed_tasks} color={colors.secondary} />
+        <Stat label="Done" value={completed_tasks} color={colors.success} />
         <Stat label="Pending" value={pending_tasks} color={colors.warning} />
       </View>
     </TouchableOpacity>

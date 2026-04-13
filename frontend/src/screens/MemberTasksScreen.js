@@ -3,6 +3,9 @@
  *
  * Pushed from FamilyOverviewScreen when an admin taps a member card.
  * Route params: { member: User }
+ *
+ * Bug fixed: must pass { isCurrentUser: false } to useTasks so it calls
+ * GET /tasks/user/{id} instead of GET /tasks/me.
  */
 
 import React, { useEffect } from 'react';
@@ -23,14 +26,17 @@ import { colors, spacing, radius, typography, shadow } from '../theme';
 export default function MemberTasksScreen() {
   const navigation = useNavigation();
   const { params: { member } } = useRoute();
-  const { tasks, loading, refresh } = useTasks(member.id);
+
+  // IMPORTANT: pass isCurrentUser: false so the hook calls GET /tasks/user/{id}
+  // (not GET /tasks/me, which would return the admin's own tasks)
+  const { tasks, loading, refresh } = useTasks(member.id, { isCurrentUser: false });
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
   const completed = tasks.filter((t) => t.completed).length;
-  const total = tasks.length;
+  const total     = tasks.length;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -67,13 +73,14 @@ export default function MemberTasksScreen() {
             <View
               style={[
                 styles.statusDot,
-                { backgroundColor: item.completed ? colors.secondary : colors.border },
+                { backgroundColor: item.completed ? colors.success : colors.border },
               ]}
             >
               {item.completed && (
                 <Ionicons name="checkmark" size={14} color={colors.white} />
               )}
             </View>
+
             <View style={styles.taskInfo}>
               <Text
                 style={[styles.taskTitle, item.completed && styles.taskTitleDone]}
@@ -81,23 +88,33 @@ export default function MemberTasksScreen() {
               >
                 {item.title}
               </Text>
-              {item.due_time ? (
-                <View style={styles.dueRow}>
-                  <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
-                  <Text style={styles.dueText}>{item.due_time}</Text>
-                </View>
-              ) : null}
+
+              <View style={styles.metaRow}>
+                {item.due_time ? (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+                    <Text style={styles.metaText}>{item.due_time.slice(0, 5)}</Text>
+                  </View>
+                ) : null}
+                {item.assigned_by ? (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="person-outline" size={12} color={colors.textSecondary} />
+                    <Text style={styles.metaText}>Assigned by {item.assigned_by}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
+
             <View
               style={[
                 styles.badge,
-                { backgroundColor: item.completed ? colors.secondary + '22' : colors.warning + '22' },
+                { backgroundColor: item.completed ? colors.success + '22' : colors.warning + '22' },
               ]}
             >
               <Text
                 style={[
                   styles.badgeText,
-                  { color: item.completed ? colors.secondary : colors.warning },
+                  { color: item.completed ? colors.success : colors.warning },
                 ]}
               >
                 {item.completed ? 'Done' : 'Pending'}
@@ -121,16 +138,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     gap: spacing.sm,
   },
-  backBtn: {
-    padding: spacing.xs,
-  },
+  backBtn: { padding: spacing.xs },
   headerText: { flex: 1 },
   headerTitle: { ...typography.h2, color: colors.white },
-  headerSubtitle: {
-    ...typography.bodySmall,
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: 2,
-  },
+  headerSubtitle: { ...typography.bodySmall, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
 
   list: { padding: spacing.md },
 
@@ -149,12 +160,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   taskInfo: { flex: 1 },
   taskTitle: { ...typography.body, fontWeight: '500' },
   taskTitleDone: { textDecorationLine: 'line-through', color: colors.textSecondary },
-  dueRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
-  dueText: { ...typography.bodySmall },
+
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 4 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  metaText: { ...typography.bodySmall },
 
   badge: {
     paddingHorizontal: spacing.sm,

@@ -1,10 +1,11 @@
 /**
  * AppContext — global app state.
  *
- * Persists the selected user and family across sessions using AsyncStorage.
+ * Persists selected user, family ID, and family name across sessions
+ * using AsyncStorage.
  *
  * Auth model:
- *   1. User picks a family → family_id stored in AsyncStorage
+ *   1. User picks a family → family_id + family_name stored in AsyncStorage
  *   2. User picks their profile → user stored + X-User-ID header set on the
  *      axios instance so all subsequent API calls are authenticated.
  */
@@ -13,17 +14,19 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFamilies, getFamilyUsers, setAuthUser } from '../services/api';
 
-const USER_KEY = '@hometick_current_user';
-const FAMILY_KEY = '@hometick_family_id';
+const USER_KEY        = '@hometick_current_user';
+const FAMILY_KEY      = '@hometick_family_id';
+const FAMILY_NAME_KEY = '@hometick_family_name';
 
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser]       = useState(null);
   const [currentFamilyId, setCurrentFamilyId] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [families, setFamilies] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [familyName, setFamilyName]         = useState('');
+  const [users, setUsers]                   = useState([]);
+  const [families, setFamilies]             = useState([]);
+  const [loadingUsers, setLoadingUsers]     = useState(false);
   const [loadingFamilies, setLoadingFamilies] = useState(false);
   const [hasLoadedFamilies, setHasLoadedFamilies] = useState(false);
   // True until AsyncStorage has resolved — prevents flash of wrong screen
@@ -34,17 +37,17 @@ export function AppProvider({ children }) {
     Promise.all([
       AsyncStorage.getItem(USER_KEY),
       AsyncStorage.getItem(FAMILY_KEY),
-    ]).then(([rawUser, storedFamilyId]) => {
+      AsyncStorage.getItem(FAMILY_NAME_KEY),
+    ]).then(([rawUser, storedFamilyId, storedFamilyName]) => {
       if (rawUser) {
         try {
           const user = JSON.parse(rawUser);
           setCurrentUser(user);
-          setAuthUser(user.id); // Re-attach the auth header
+          setAuthUser(user.id);
         } catch (_) {}
       }
-      if (storedFamilyId) {
-        setCurrentFamilyId(storedFamilyId);
-      }
+      if (storedFamilyId)   setCurrentFamilyId(storedFamilyId);
+      if (storedFamilyName) setFamilyName(storedFamilyName);
       setIsInitializing(false);
     });
   }, []);
@@ -78,16 +81,32 @@ export function AppProvider({ children }) {
     }
   };
 
-  const selectFamily = async (familyId) => {
+  /**
+   * Called when the user picks (or creates) a family.
+   * Stores family_id + family_name and pre-fetches the member list.
+   */
+  const selectFamily = async (familyId, name = '') => {
     setCurrentFamilyId(familyId);
+    setFamilyName(name);
     await AsyncStorage.setItem(FAMILY_KEY, familyId);
+    if (name) await AsyncStorage.setItem(FAMILY_NAME_KEY, name);
     await fetchUsersForFamily(familyId);
   };
 
+  /**
+   * Called after the user taps their profile card.
+   * The auth response from /auth/select-user now includes family_name,
+   * so we update context if it arrives.
+   */
   const selectUser = async (user) => {
     setCurrentUser(user);
     setAuthUser(user.id);
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+    // If the auth response carries family_name, keep context in sync
+    if (user.family_name) {
+      setFamilyName(user.family_name);
+      await AsyncStorage.setItem(FAMILY_NAME_KEY, user.family_name);
+    }
   };
 
   /** Log out the current user but stay in the same family. */
@@ -97,15 +116,16 @@ export function AppProvider({ children }) {
     await AsyncStorage.removeItem(USER_KEY);
   };
 
-  /** Log out completely — clears both user and family selection. */
+  /** Log out completely — clears user, family, and family name. */
   const logoutFamily = async () => {
     setCurrentUser(null);
     setCurrentFamilyId(null);
+    setFamilyName('');
     setUsers([]);
     setFamilies([]);
     setAuthUser(null);
     setHasLoadedFamilies(false);
-    await AsyncStorage.multiRemove([USER_KEY, FAMILY_KEY]);
+    await AsyncStorage.multiRemove([USER_KEY, FAMILY_KEY, FAMILY_NAME_KEY]);
   };
 
   return (
@@ -113,6 +133,7 @@ export function AppProvider({ children }) {
       value={{
         currentUser,
         currentFamilyId,
+        familyName,
         users,
         families,
         loadingUsers,

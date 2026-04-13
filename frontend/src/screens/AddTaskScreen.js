@@ -8,7 +8,7 @@
  *   - Optional due time (HH:MM)
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,15 @@ import Header from '../components/Header';
 import { colors, spacing, radius, typography, shadow } from '../theme';
 
 export default function AddTaskScreen() {
-  const { currentUser, users, logout } = useApp();
+  const { currentUser, familyName, users, fetchUsersForFamily, currentFamilyId, logout } = useApp();
+
+  // If the users list is empty (e.g. app restored from cold start and user landed directly
+  // on this tab), fetch the family's member list so the assignee picker is populated.
+  useEffect(() => {
+    if (users.length === 0 && currentFamilyId) {
+      fetchUsersForFamily(currentFamilyId);
+    }
+  }, [currentFamilyId]);
 
   const [title, setTitle] = useState('');
   const [assignedTo, setAssignedTo] = useState(null);
@@ -87,7 +95,7 @@ export default function AddTaskScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Header title="Add Task" subtitle="Create & assign a new task" onLogout={logout} />
+      <Header title="Add Task" subtitle="Create & assign a new task" familyName={familyName} onLogout={logout} />
 
       <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         {/* Title */}
@@ -132,8 +140,8 @@ export default function AddTaskScreen() {
           <Switch
             value={isDaily}
             onValueChange={setIsDaily}
-            trackColor={{ false: colors.border, true: colors.primaryLight }}
-            thumbColor={isDaily ? colors.primary : colors.textDisabled}
+            trackColor={{ false: colors.switchBackground, true: colors.primary }}
+            thumbColor={colors.white}
           />
         </View>
 
@@ -182,10 +190,9 @@ const styles = StyleSheet.create({
 
   label: { ...typography.label, marginBottom: spacing.xs, marginTop: spacing.md },
   input: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.inputBackground,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 0,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     ...typography.body,
